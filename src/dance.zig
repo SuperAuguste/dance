@@ -3,15 +3,15 @@ const std = @import("std");
 /// Uses a mask to find a char in a string; 11-20x as fast as std.mem.indexOfScalar on long strings
 /// Recommended mask sizes: 8, 16, 32, 64
 /// TODO: This can probably be optimized to not use a "subscan" at all by using more masks and @shuffle
-pub fn indexOfScalar(comptime T: type, comptime mask_size: usize, slice: []const T, value: T) ?usize {
-    const Vector = std.meta.Vector(mask_size, T);
-    const mask = @splat(mask_size, value);
+pub fn indexOfScalar(comptime T: type, comptime block_size: usize, slice: []const T, value: T) ?usize {
+    const Vector = std.meta.Vector(block_size, T);
+    const mask = @splat(block_size, value);
     var index: usize = 0;
 
     // Vector scanning
-    while (index < slice.len - mask_size) : (index += mask_size) {
-        var subslice = slice[index .. index + mask_size];
-        var vector: Vector = subslice[0..mask_size].*;
+    while (index < slice.len - block_size) : (index += block_size) {
+        var subslice = slice[index .. index + block_size];
+        var vector: Vector = subslice[0..block_size].*;
 
         // Once a region is verified, subscan
         if (@reduce(.Min, vector ^ mask) == 0) {
@@ -25,8 +25,8 @@ pub fn indexOfScalar(comptime T: type, comptime mask_size: usize, slice: []const
     }
 
     // Subscan the remaining bytes
-    for (slice[index - mask_size ..]) |subvalue, subindex| {
-        if (subvalue == value) return (index - mask_size) + subindex;
+    for (slice[index - block_size ..]) |subvalue, subindex| {
+        if (subvalue == value) return (index - block_size) + subindex;
     }
 
     return null;
@@ -90,4 +90,56 @@ test "parseInt" {
     try std.testing.expectEqual(@as(usize, 87), parseInt(usize, 3, "127", 8));
 
     try std.testing.expectEqual(@as(usize, 69), parseInt(usize, 7, "1000101", 2));
+}
+
+pub fn min(comptime T: type, comptime block_size: usize, slice: []const T) T {
+    const Vector = std.meta.Vector(block_size, T);
+    var index: usize = 1;
+    var best: T = slice[0];
+
+    while (index < slice.len - block_size) : (index += block_size) {
+        var vector: Vector = slice[index .. index + block_size][0..block_size].*;
+        var maybe_min = @reduce(.Min, vector);
+
+        if (maybe_min < best)
+            best = maybe_min;
+    }
+
+    for (slice[index - block_size ..]) |subvalue| {
+        if (subvalue < best)
+            best = subvalue;
+    }
+
+    return best;
+}
+
+test "min" {
+    var array = [_]i32{ 12, 18, 27, 78, 39, 0, 67, 38, 30, 12, 87, 21, 3, -89, 712, 90 };
+    try std.testing.expectEqual(@as(i32, -89), min(i32, 4, &array));
+}
+
+pub fn max(comptime T: type, comptime block_size: usize, slice: []const T) T {
+    const Vector = std.meta.Vector(block_size, T);
+    var index: usize = 1;
+    var best: T = slice[0];
+
+    while (index < slice.len - block_size) : (index += block_size) {
+        var vector: Vector = slice[index .. index + block_size][0..block_size].*;
+        var maybe_max = @reduce(.Max, vector);
+
+        if (maybe_max > best)
+            best = maybe_max;
+    }
+
+    for (slice[index - block_size ..]) |subvalue| {
+        if (subvalue > best)
+            best = subvalue;
+    }
+
+    return best;
+}
+
+test "max" {
+    var array = [_]i32{ 69, 87, 42, 420, 696969, 89, 45678987 };
+    try std.testing.expectEqual(@as(i32, 45678987), max(i32, 4, &array));
 }
