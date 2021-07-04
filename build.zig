@@ -1,6 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.build.Builder) void {
+    const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
     // Tests
@@ -13,6 +14,7 @@ pub fn build(b: *std.build.Builder) void {
     // Benchmark
     const exe = b.addExecutable("$", "benchmark/benchmark.zig");
     exe.addPackagePath("dance", "src/dance.zig");
+    exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
 

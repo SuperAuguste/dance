@@ -6,12 +6,32 @@ const dance = @import("dance");
 const bee_movie = @embedFile("bee_movie.txt");
 
 fn bench(timer: *std.time.Timer, comptime label: []const u8, comptime ReturnType: type, comptime std_fn: fn () anyerror!ReturnType, comptime simd_fn: fn () anyerror!ReturnType) !void {
+    const iterations = 10_000;
+
+    var std_out: ReturnType = undefined;
+    var simd_out: ReturnType = undefined;
+    var index: usize = 0;
+
+    index = 0;
+    while (index < iterations) : (index += 1)
+        simd_out = try @call(.{ .modifier = .always_inline }, simd_fn, .{});
     timer.reset();
-    var simd_out = try @call(.{ .modifier = .always_inline }, simd_fn, .{});
+    index = 0;
+    while (index < iterations) : (index += 1)
+        simd_out = try @call(.{ .modifier = .always_inline }, simd_fn, .{});
     var simd_time_took = timer.read();
 
+    var amogo = try std.heap.page_allocator.alloc(u8, 1024);
+    try std.os.getrandom(amogo);
+    std.heap.page_allocator.free(amogo);
+
+    index = 0;
+    while (index < iterations) : (index += 1)
+        std_out = try @call(.{ .modifier = .always_inline }, std_fn, .{});
     timer.reset();
-    var std_out = try @call(.{ .modifier = .always_inline }, std_fn, .{});
+    index = 0;
+    while (index < iterations) : (index += 1)
+        std_out = try @call(.{ .modifier = .always_inline }, std_fn, .{});
     var std_time_took = timer.read();
 
     if (std_out != simd_out) @panic("No!");
