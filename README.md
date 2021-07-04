@@ -11,3 +11,7 @@ Finds the first index of a value in a slice.
 ### parseInt
 
 Parses an integer of a comptime-known length and radix.
+
+## Benchmarks
+
+First, download the Bee Movie script [here](https://gist.github.com/ElliotGluck/64b0b814293c09999f765e265aaa2ba1). Then, rename it to `bee_movie.txt` and place it in the benchmark folder.
