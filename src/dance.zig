@@ -1,7 +1,26 @@
 const std = @import("std");
 
+/// Get the preferred vector bit size as specified in the features list
+/// Use this for functions that work better with larger block sizes
+pub fn getPreferredBitSize() u16 {
+    comptime var preferred: u16 = 64;
+
+    comptime for (std.Target.current.cpu.arch.allFeaturesList()) |feature| {
+        if (std.mem.eql(u8, feature.name, "prefer_128_bit") and 128 > preferred)
+            preferred = 128
+        else if (std.mem.eql(u8, feature.name, "prefer_256_bit") and 256 > preferred)
+            preferred = 256;
+    };
+
+    return preferred;
+}
+
+test {
+    _ = getPreferredBitSize();
+}
+
 /// Uses a mask to find a char in a string; 11-20x as fast as std.mem.indexOfScalar on long strings
-/// Recommended mask sizes: 8, 16, 32, 64
+/// Recommended mask sizes are multiples of 8; 16 seems to perform the best on my machine
 /// TODO: This can probably be optimized to not use a "subscan" at all by using more masks and @shuffle
 pub fn indexOfScalar(comptime T: type, comptime block_size: usize, slice: []const T, value: T) ?usize {
     const Vector = std.meta.Vector(block_size, T);
@@ -19,7 +38,7 @@ pub fn indexOfScalar(comptime T: type, comptime block_size: usize, slice: []cons
                 if (subvalue == value) return index + subindex;
             }
 
-            // Impossible; the char must be in this region
+            // Impossible; the value must be in this region
             unreachable;
         }
     }
@@ -59,11 +78,11 @@ pub fn parseInt(comptime T: type, comptime length: usize, buf: []const u8, compt
     // by subtracting 48, the ASCII value of '0'
     const sub_mask = @splat(length, @intCast(T, 48));
 
-    // Our accumulator for our "multiplication mask" (1, 8, 64, etc.)
+    // Our accumulator for our "multiplication mask" (radix pow 0, radix pow 1, radix pow 2, etc.)
     comptime var acc: T = 1;
     comptime var acci: usize = 0;
 
-    // Preload the vector with our powers of 8
+    // Preload the vector with our powers of radix
     comptime while (acci < length) : ({
         acc *= radix;
         acci += 1;
