@@ -49,6 +49,19 @@ pub fn main() anyerror!void {
 
     var timer = try std.time.Timer.start();
 
+    const zz = "a" ** 10000;
+    const xx = "a" ** 10000;
+
+    try bench(&timer, "eql", bool, struct {
+        fn b() anyerror!bool {
+            return std.mem.eql(u8, zz, xx);
+        }
+    }.b, struct {
+        fn b() anyerror!bool {
+            return dance.eql(u8, comptime dance.getPreferredBitSize(), zz, xx);
+        }
+    }.b);
+
     try bench(&timer, "indexOfScalar", usize, struct {
         fn b() anyerror!usize {
             return std.mem.indexOfScalar(u8, bee_movie, '.').?;

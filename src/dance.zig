@@ -19,6 +19,22 @@ test {
     _ = getPreferredBitSize();
 }
 
+pub fn eql(comptime T: type, comptime block_size: usize, a: []const T, b: []const T) bool {
+    if (a.len != b.len) return false;
+
+    const Vector = std.meta.Vector(block_size, T);
+    var index: usize = 0;
+
+    while (index < a.len - block_size) : (index += block_size) {
+        var av: Vector = a[index..][0..block_size].*;
+        var bv: Vector = b[index..][0..block_size].*;
+
+        if (!@reduce(.And, av == bv)) return false;
+    }
+
+    return std.mem.eql(u8, a[index - block_size ..], b[index - block_size ..]);
+}
+
 /// Uses a mask to find a char in a string; 11-20x as fast as std.mem.indexOfScalar on long strings
 /// Recommended mask sizes are multiples of 8; 16 seems to perform the best on my machine
 /// TODO: This can probably be optimized to not use a "subscan" at all by using more masks and @shuffle
@@ -117,7 +133,7 @@ pub fn min(comptime T: type, comptime block_size: usize, slice: []const T) T {
     var best: T = slice[0];
 
     while (index < slice.len - block_size) : (index += block_size) {
-        var vector: Vector = slice[index .. index + block_size][0..block_size].*;
+        var vector: Vector = slice[index..][0..block_size].*;
         var maybe_min = @reduce(.Min, vector);
 
         if (maybe_min < best)
@@ -143,7 +159,7 @@ pub fn max(comptime T: type, comptime block_size: usize, slice: []const T) T {
     var best: T = slice[0];
 
     while (index < slice.len - block_size) : (index += block_size) {
-        var vector: Vector = slice[index .. index + block_size][0..block_size].*;
+        var vector: Vector = slice[index..][0..block_size].*;
         var maybe_max = @reduce(.Max, vector);
 
         if (maybe_max > best)
