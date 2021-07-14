@@ -27,19 +27,19 @@ pub fn eql(comptime T: type, comptime block_size: usize, a: []const T, b: []cons
     const Vector = std.meta.Vector(block_size, T);
     var index: usize = 0;
 
-    if (a.len > block_size) {
-        while (index < a.len - block_size) : (index += block_size) {
-            var av: Vector = a[index..][0..block_size].*;
-            var bv: Vector = b[index..][0..block_size].*;
+    while (index + block_size < a.len) : (index += block_size) {
+        var av: Vector = a[index..][0..block_size].*;
+        var bv: Vector = b[index..][0..block_size].*;
 
-            if (!@reduce(.And, av == bv)) return false;
-        }
+        if (!@reduce(.And, av == bv)) return false;
     } else index += block_size;
 
     return std.mem.eql(u8, a[index - block_size ..], b[index - block_size ..]);
 }
 
 test "eql" {
+    try std.testing.expect(eql(u8, 2, "abcd", "abcd"));
+
     try std.testing.expect(eql(u8, 8, "abc", "abc"));
     try std.testing.expect(!eql(u8, 8, "abc", "abcd"));
 
@@ -55,20 +55,18 @@ pub fn indexOfScalar(comptime T: type, comptime block_size: usize, slice: []cons
     const mask = @splat(block_size, value);
     var index: usize = 0;
 
-    if (slice.len > block_size) {
-        while (index < slice.len - block_size) : (index += block_size) {
-            var subslice = slice[index .. index + block_size];
-            var vector: Vector = subslice[0..block_size].*;
+    while (index + block_size < slice.len) : (index += block_size) {
+        var subslice = slice[index .. index + block_size];
+        var vector: Vector = subslice[0..block_size].*;
 
-            // Once a region is verified, subscan
-            if (@reduce(.Min, vector ^ mask) == 0) {
-                for (subslice) |subvalue, subindex| {
-                    if (subvalue == value) return index + subindex;
-                }
-
-                // Impossible; the value must be in this region
-                unreachable;
+        // Once a region is verified, subscan
+        if (@reduce(.Min, vector ^ mask) == 0) {
+            for (subslice) |subvalue, subindex| {
+                if (subvalue == value) return index + subindex;
             }
+
+            // Impossible; the value must be in this region
+            unreachable;
         }
     } else index += block_size;
 
@@ -150,14 +148,12 @@ pub fn min(comptime T: type, comptime block_size: usize, slice: []const T) T {
     var index: usize = 1;
     var best: T = slice[0];
 
-    if (slice.len > block_size) {
-        while (index < slice.len - block_size) : (index += block_size) {
-            var vector: Vector = slice[index..][0..block_size].*;
-            var maybe_min = @reduce(.Min, vector);
+    while (index + block_size < slice.len) : (index += block_size) {
+        var vector: Vector = slice[index..][0..block_size].*;
+        var maybe_min = @reduce(.Min, vector);
 
-            if (maybe_min < best)
-                best = maybe_min;
-        }
+        if (maybe_min < best)
+            best = maybe_min;
     } else index += block_size;
 
     for (slice[index - block_size ..]) |subvalue| {
@@ -182,14 +178,12 @@ pub fn max(comptime T: type, comptime block_size: usize, slice: []const T) T {
     var index: usize = 1;
     var best: T = slice[0];
 
-    if (slice.len > block_size) {
-        while (index < slice.len - block_size) : (index += block_size) {
-            var vector: Vector = slice[index..][0..block_size].*;
-            var maybe_max = @reduce(.Max, vector);
+    while (index + block_size < slice.len) : (index += block_size) {
+        var vector: Vector = slice[index..][0..block_size].*;
+        var maybe_max = @reduce(.Max, vector);
 
-            if (maybe_max > best)
-                best = maybe_max;
-        }
+        if (maybe_max > best)
+            best = maybe_max;
     } else index += block_size;
 
     for (slice[index - block_size ..]) |subvalue| {
