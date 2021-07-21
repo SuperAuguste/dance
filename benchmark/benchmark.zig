@@ -68,7 +68,7 @@ pub fn main() anyerror!void {
         }
     }.b, struct {
         fn b() anyerror!usize {
-            return dance.indexOfScalar(u8, 16, bee_movie, '.').?;
+            return dance.indexOfScalar(u8, 32, bee_movie, '.').?;
         }
     }.b);
 
@@ -80,6 +80,23 @@ pub fn main() anyerror!void {
     }.b, struct {
         fn b() anyerror!usize {
             return dance.parseInt(usize, num.len, num, 10);
+        }
+    }.b);
+
+    const num2: usize = 123456;
+    try bench(&timer, "formatIntBuf", usize, struct {
+        fn b() anyerror!usize {
+            var buf: [6]u8 = undefined;
+
+            _ = std.fmt.formatIntBuf(&buf, num2, 10, .lower, .{});
+            return 0;
+        }
+    }.b, struct {
+        fn b() anyerror!usize {
+            var buf: [6]u8 = undefined;
+
+            dance.formatIntBuf(usize, buf.len, &buf, num2, 10);
+            return 0;
         }
     }.b);
 

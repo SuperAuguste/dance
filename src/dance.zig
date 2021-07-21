@@ -19,6 +19,24 @@ test {
     _ = getPreferredBitSize();
 }
 
+pub fn FindFirstInt(comptime len: u32) type {
+    return std.meta.Int(.unsigned, len);
+}
+
+pub fn findFirst(comptime T: type, comptime len: u32, vec: std.meta.Vector(len, T), value: T) FindFirstInt(len) {
+    const I = FindFirstInt(len);
+    const mask = @splat(len, value);
+
+    var result = vec == mask;
+    return @ctz(I, @ptrCast(*I, &result).*);
+}
+
+test "findFirst" {
+    const joe = "joe{bidenkamalah";
+    var vec: std.meta.Vector(16, u8) = joe[0..16].*;
+    try std.testing.expectEqual(@as(FindFirstInt(16), 3), findFirst(u8, 16, vec, '{'));
+}
+
 /// Uses vector blocks to quickly determine equality
 /// Runs 20x faster on my machine; larger blocks are better (use getPreferredBitSize!)
 pub fn eql(comptime T: type, comptime block_size: usize, a: []const T, b: []const T) bool {
@@ -61,12 +79,7 @@ pub fn indexOfScalar(comptime T: type, comptime block_size: usize, slice: []cons
 
         // Once a region is verified, subscan
         if (@reduce(.Min, vector ^ mask) == 0) {
-            for (subslice) |subvalue, subindex| {
-                if (subvalue == value) return index + subindex;
-            }
-
-            // Impossible; the value must be in this region
-            unreachable;
+            return index + @intCast(usize, findFirst(T, block_size, vector, value));
         }
     } else index += block_size;
 
@@ -140,6 +153,35 @@ test "parseInt" {
     try std.testing.expectEqual(@as(usize, 87), parseInt(usize, 3, "127", 8));
 
     try std.testing.expectEqual(@as(usize, 69), parseInt(usize, 7, "1000101", 2));
+}
+
+pub fn formatIntBuf(comptime T: type, comptime length: usize, buf: []u8, num: T, comptime radix: u8) void {
+    std.debug.assert(buf.len == length);
+
+    const VectorT = std.meta.Vector(length, T);
+
+    comptime var multi_mask: VectorT = undefined;
+    const add_mask = @splat(length, @intCast(T, 48));
+    const mod_mask = @splat(length, @intCast(T, radix));
+
+    // Our accumulator for our "multiplication mask" (radix pow 0, radix pow 1, radix pow 2, etc.)
+    comptime var acc: T = 1;
+    comptime var acci: usize = 0;
+
+    // Preload the vector with our powers of radix
+    comptime while (acci < length) : ({
+        acc *= radix;
+        acci += 1;
+    }) {
+        multi_mask[length - acci - 1] = acc;
+    };
+
+    var op_vec = @splat(length, num);
+    op_vec /= multi_mask;
+    op_vec %= mod_mask;
+    op_vec += add_mask;
+
+    for (buf) |*v, i| v.* = @intCast(u8, op_vec[i]);
 }
 
 /// Runs ~80x faster on my machine; larger blocks are better (use getPreferredBitSize!)
