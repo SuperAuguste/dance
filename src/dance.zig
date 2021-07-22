@@ -19,22 +19,36 @@ test {
     _ = getPreferredBitSize();
 }
 
-pub fn FindFirstInt(comptime len: u32) type {
+pub fn BoolVectorInt(comptime len: u32) type {
     return std.meta.Int(.unsigned, len);
 }
 
-pub fn findFirst(comptime T: type, comptime len: u32, vec: std.meta.Vector(len, T), value: T) FindFirstInt(len) {
-    const I = FindFirstInt(len);
+pub fn boolVectorToInt(comptime len: u32, vec: std.meta.Vector(len, bool)) BoolVectorInt(len) {
+    return @ptrCast(*const BoolVectorInt(len), &vec).*;
+}
+
+pub fn findFirst(comptime T: type, comptime len: u32, vec: std.meta.Vector(len, T), value: T) std.meta.Int(.unsigned, len) {
+    const I = BoolVectorInt(len);
     const mask = @splat(len, value);
 
     var result = vec == mask;
-    return @ctz(I, @ptrCast(*I, &result).*);
+    return @ctz(I, boolVectorToInt(len, result));
 }
 
 test "findFirst" {
     const joe = "joe{bidenkamalah";
     var vec: std.meta.Vector(16, u8) = joe[0..16].*;
-    try std.testing.expectEqual(@as(FindFirstInt(16), 3), findFirst(u8, 16, vec, '{'));
+    try std.testing.expectEqual(@as(u16, 3), findFirst(u8, 16, vec, '{'));
+}
+
+pub fn countSet(comptime len: u32, vec: std.meta.Vector(len, bool)) BoolVectorInt(len) {
+    return @popCount(BoolVectorInt(len), boolVectorToInt(len, vec));
+}
+
+test "countSet" {
+    const joe = "joe{bidenkamalah";
+    var vec: std.meta.Vector(16, u8) = joe[0..16].*;
+    try std.testing.expectEqual(@as(u16, 3), countSet(16, vec == @splat(16, @as(u8, 'a'))));
 }
 
 /// Uses vector blocks to quickly determine equality
@@ -105,6 +119,35 @@ test "indexOfScalar" {
 
     try std.testing.expect(indexOfScalar(u32, 8, &array, 82) == null);
     try std.testing.expect(indexOfScalar(u32, 8, &array, 13) == null);
+}
+
+pub fn countScalar(comptime T: type, comptime block_size: usize, slice: []const T, value: T) usize {
+    const Vector = std.meta.Vector(block_size, T);
+    const mask = @splat(block_size, value);
+    var index: usize = 0;
+    var count: usize = 0;
+
+    while (index + block_size < slice.len) : (index += block_size) {
+        var subslice = slice[index .. index + block_size];
+        var vector: Vector = subslice[0..block_size].*;
+
+        // Once a region is verified, subscan
+        if (@reduce(.Min, vector ^ mask) == 0) {
+            count += countSet(block_size, vector == mask);
+        }
+    } else index += block_size;
+
+    // Subscan the remaining bytes
+    for (slice[index - block_size ..]) |subvalue| {
+        if (subvalue == value) count += 1;
+    }
+
+    return count;
+}
+
+test "countScalar" {
+    var string = "gyuijhvcfygh hfcygb";
+    try std.testing.expectEqual(@as(usize, 3), countScalar(u8, 8, string, 'g'));
 }
 
 /// Parses an integer of a comptime-known length and radix

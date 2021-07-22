@@ -72,6 +72,20 @@ pub fn main() anyerror!void {
         }
     }.b);
 
+    try bench(&timer, "countScalar", usize, struct {
+        fn b() anyerror!usize {
+            var count: usize = 0;
+            for (bee_movie) |c| {
+                if (c == 'g') count += 1;
+            }
+            return count;
+        }
+    }.b, struct {
+        fn b() anyerror!usize {
+            return dance.countScalar(u8, 32, bee_movie, 'g');
+        }
+    }.b);
+
     const num = "5678987654";
     try bench(&timer, "parseInt", usize, struct {
         fn b() anyerror!usize {
