@@ -231,15 +231,14 @@ pub fn formatIntBuf(comptime T: type, comptime length: usize, buf: []u8, num: T,
 pub fn min(comptime T: type, comptime block_size: usize, slice: []const T) T {
     const Vector = std.meta.Vector(block_size, T);
     var index: usize = 1;
-    var best: T = slice[0];
+    var best_vec = @splat(block_size, slice[0]);
 
     while (index + block_size < slice.len) : (index += block_size) {
         var vector: Vector = slice[index..][0..block_size].*;
-        var maybe_min = @reduce(.Min, vector);
-
-        if (maybe_min < best)
-            best = maybe_min;
+        best_vec = @minimum(best_vec, vector);
     } else index += block_size;
+
+    var best = @reduce(.Min, best_vec);
 
     for (slice[index - block_size ..]) |subvalue| {
         if (subvalue < best)
@@ -261,15 +260,14 @@ test "min" {
 pub fn max(comptime T: type, comptime block_size: usize, slice: []const T) T {
     const Vector = std.meta.Vector(block_size, T);
     var index: usize = 1;
-    var best: T = slice[0];
+    var best_vec = @splat(block_size, slice[0]);
 
     while (index + block_size < slice.len) : (index += block_size) {
         var vector: Vector = slice[index..][0..block_size].*;
-        var maybe_max = @reduce(.Max, vector);
-
-        if (maybe_max > best)
-            best = maybe_max;
+        best_vec = @maximum(best_vec, vector);
     } else index += block_size;
+
+    var best = @reduce(.Max, best_vec);
 
     for (slice[index - block_size ..]) |subvalue| {
         if (subvalue > best)
