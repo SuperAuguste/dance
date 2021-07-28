@@ -178,8 +178,9 @@ pub fn parseInt(comptime T: type, comptime length: usize, buf: []const u8, compt
     };
 
     // Let's actually do the math now!
-    var vec: VectorT = undefined;
-    for (buf) |b, i| vec[i] = b;
+    var vec_u8: std.meta.Vector(length, u8) = buf[0..length].*;
+    var vec: VectorT = vec_u8;
+    // for (buf) |b, i| vec[i] = b;
     // Applies our "subtraction mask"
     vec -= sub_mask;
     // Applies our "multiplication mask"
